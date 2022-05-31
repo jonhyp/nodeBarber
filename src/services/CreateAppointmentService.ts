@@ -1,39 +1,42 @@
+import { getCustomRepository } from "typeorm";
+
+import AppError from "../errors/AppError";
+
 import { startOfHour } from "date-fns";
 import Appointment from "../models/Appointment";
-import AppointmentRepository from "../repositories/AppointmentsRepository";
+import AppointmentsRepository from "../repositories/AppointmentsRepository";
 
 interface RequestDTO {
-  provider: string;
+  provider_id: string;
   date: Date;
 }
 
 class CreateAppointmentService {
-  private appointmentsRepository: AppointmentRepository;
+  public async execute({
+    provider_id,
+    date,
+  }: RequestDTO): Promise<Appointment> {
+    const appointmentsRepository = getCustomRepository(AppointmentsRepository);
 
-  constructor(appointmentsRepository: AppointmentRepository) {
-    this.appointmentsRepository = appointmentsRepository;
-  }
-
-  public execute({ provider, date }: RequestDTO): Appointment {
     const appointmentDate = startOfHour(date);
 
-    const findAppointmentInSameDate =
-      this.appointmentsRepository.findByDate(appointmentDate);
+    const findAppointmentInSameDate = await appointmentsRepository.findByDate(
+      appointmentDate
+    );
 
     if (findAppointmentInSameDate) {
-      throw Error("This appointment is already booked.");
+      throw new AppError("This appointment is already booked.", 400);
     }
 
-    const appointment = this.appointmentsRepository.create({
-      provider: provider,
+    const appointment = appointmentsRepository.create({
+      provider_id: provider_id,
       date: appointmentDate,
     });
+
+    await appointmentsRepository.save(appointment);
 
     return appointment;
   }
 }
 
 export default CreateAppointmentService;
-
-// O services vai conter toda a regra de negocio. É interessante que cada arquivo no services seja
-//responsavel por uma ação.
